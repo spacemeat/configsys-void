@@ -1,0 +1,11 @@
+// Native packages the Void name-existence sweep is EXPECTED not to find, keyed by driver.
+// Prefer FIXING the route (a `component-names` entry) over allowlisting — only genuine
+// "lives in a vendor repo the check doesn't enable" cases belong here. Unioned with the core
+// configsys allowlist by test/run-name-sweep.sh.
+{
+    // GPU / accelerator SDKs live in VENDOR repos the user wires up themselves — not in Void's
+    // base repos. Same exception the core sweep carries for the five base families.
+    xbps: [ cuda-toolkit          // NVIDIA
+            intel-oneapi-basekit  // Intel oneAPI
+            rocm-hip ]            // AMD ROCm
+}

@@ -14,4 +14,24 @@
     components: {
         xtools: { install: [ { via: xbps  when: "void" } ] }        // Void's packaging helper scripts
     }
+
+    // Per-driver package-name patches for CORE components whose xbps name differs from the
+    // generic default — supplied WITHOUT redefining the component (that's what `component-names`
+    // is for). Verified against ghcr.io/void-linux/void-glibc by test/run-name-sweep.sh; the
+    // sweep is what keeps this honest as Void's repos roll. `{}` = Void has no xbps package for
+    // the component, so it's simply not offered here (nmap: only masscan is packaged).
+    component-names: {
+        xbps: {
+            docker-engine: docker          // "Docker container runtime" (default was docker.io)
+            fish:          fish-shell
+            jdk:           openjdk21        // Void versions the JDK; 21 is current LTS
+            libfuse2:      fuse             // FUSE2 runtime (libfuse.so.2)
+            maven:         apache-maven
+            netcat:        openbsd-netcat   // the BSD nc
+            pipx:          python3-pipx
+            r:             R                // capital R
+            tshark:        wireshark        // tshark ships inside the wireshark package
+            nmap:          {}               // absent on Void (only masscan) -> not offered
+        }
+    }
 }
