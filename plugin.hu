@@ -15,6 +15,14 @@
     // The data layers (os + component definitions) merged into the routing stack.
     data: [ routes.hu ]
 
+    // Pull in configsys-neovim (transitive) so Void users get a working Neovim: the prebuilt glibc
+    // AppImage can't run on void_musl, so neovim is built FROM SOURCE instead. (This applies on
+    // void-glibc too — a source-built Neovim; Void is a source-friendly distro, and it keeps neovim
+    // uniform across both flavors. Drop this line if you'd rather glibc Void kept the AppImage.)
+    plugins: [
+        { source: "github:spacemeat/configsys-neovim"  ref: v0.1.0 }
+    ]
+
     // The code module. Because this key is present, the plugin ships code: its `via: xbps`
     // driver runs with your privileges during installs, so it stays inert until you approve
     // its exact contents with `configsys plugin trust void`.
