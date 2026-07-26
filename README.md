@@ -1,24 +1,32 @@
 # configsys-void — Void Linux support for configsys
 
 A complete, working [configsys](https://github.com/spacemeat/configsys) **code plugin** that
-makes **Void Linux** a first-class OS: a `void` OS block, an `xbps` driver, verified per-distro
-package names for the components whose Void name differs, and a name-existence sweep that keeps
-those names honest as Void rolls. It doubles as the reference **code plugin** — the shape to copy
-for any package manager configsys doesn't ship (nix, slackpkg, …); Alpine (`apk`) and openSUSE
-(`zypper`) began as plugins shaped exactly like this before being folded into base.
+makes **Void Linux** a first-class OS in *both* its libc flavors — `void` (glibc) and `void_musl`
+(musl): an `xbps` driver, verified package names for the components whose Void name differs, and a
+name-existence sweep (both flavors) that keeps those names honest as Void rolls. It doubles as the
+reference **code plugin** — the shape to copy for any package manager configsys doesn't ship (nix,
+slackpkg, …); Alpine (`apk`) and openSUSE (`zypper`) began as plugins shaped exactly like this
+before being folded into base.
 
 It's three files — the shape of every code plugin:
 
 | File | Role |
 | --- | --- |
 | `plugin.hu` | manifest — name, `requires-abi`, `data:` (the routing layers), `code:` (the module) |
-| `routes.hu` | data — the `void` OS block, a `via: xbps` component, and the `component-names:` name map |
+| `routes.hu` | data — the `void`/`void_musl` OS blocks, a `via: xbps` component, and the `component-names:` name map |
 | `driver.py` | code — the `Xbps(Driver)` subclass + `DRIVERS = [Xbps]` export |
 
 ## What it demonstrates
 
-- **A new OS in one block.** `os: { void: { using: linux  native: xbps } }` makes every
+- **A new OS in one block.** `os: { void: { using: glibc_linux  native: xbps } }` makes every
   existing repo component that routes `via: native` install on Void — no per-component work.
+- **libc as an orthogonal axis (the interesting bit).** Void ships glibc *and* musl builds of the
+  same distro. `void` hangs off `glibc_linux` (so it provides the `glibc` capability — AppImages
+  and glibc tarballs like neovim/julia/deno install normally); `void_musl` hangs off bare `linux`
+  (like Alpine), so those same glibc-only bindings `requires: glibc` and cleanly **decline** —
+  same xbps driver, same `component-names` map, just a different binary-compat surface, with zero
+  per-component work. Both report `ID=void`, so `void_musl` is told apart by the musl loader's
+  presence: `detect: { id: void  marker: /lib/ld-musl-x86_64.so.1 }` (pure data, no code).
 - **A new driver.** `driver.py` subclasses `Driver` from the frozen ABI surface and implements
   the op set (`get_version`/`install`/`upgrade`/…) with real `xbps-*` commands. Query ops need
   no root; mutations run under sudo. Void is rolling but has a native package hold, so this
@@ -70,21 +78,25 @@ documented on the `Driver` base class (`configsys/driver.py`) and versioned by
 
 ## Testing — the name sweep
 
-`test/run-name-sweep.sh` resolves the whole component catalog on `void` (with this plugin loaded)
-and checks every xbps package name it maps to actually exists in Void's repos, against
-`ghcr.io/void-linux/void-glibc`. This is what keeps `component-names:` honest: if Void renames or
-drops a package, the sweep turns red and points at the exact component.
+`test/run-name-sweep.sh` resolves the whole component catalog with this plugin loaded and checks
+every xbps package name it maps to actually exists in Void's repos — for **both** flavors, against
+`ghcr.io/void-linux/void-glibc` and `…/void-musl`. This is what keeps `component-names:` honest: if
+Void renames or drops a package, the sweep turns red and points at the exact component.
 
 ```console
 $ CONFIGSYS_REPO=../configsys test/run-name-sweep.sh
 >> void (xbps): 88 packages in ghcr.io/void-linux/void-glibc:latest
 name sweep: OK — void native names all exist.
+>> void_musl (xbps): 88 packages in ghcr.io/void-linux/void-musl:latest
+name sweep: OK — void_musl native names all exist.
 ```
 
+xbps package names are libc-agnostic, so one `component-names` map covers both flavors — the sweep
+confirms it against each. (The glibc/musl difference is the *binary-compat* surface, handled by the
+`glibc` capability, not the package names.)
+
 - `test/void-repo-setup.sh` — syncs the xbps repo index in the container before the check.
-- `test/run-name-sweep.sh` — invokes the plugin-OS mode of configsys's `tools/namesweep.py`.
+- `test/run-name-sweep.sh` — invokes the plugin-OS mode of configsys's `tools/namesweep.py`, once
+  per flavor.
 - `test/namesweep-allowlist.hu` — the GPU/accelerator SDKs (CUDA/ROCm/oneAPI) that live in vendor
   repos, not Void's base (unioned with configsys's core allowlist).
-
-Void ships both **glibc** and **musl** variants; this plugin (and the sweep) target glibc, which
-matches the `using: linux` glibc baseline. musl support would be a follow-on `when:`/name pass.

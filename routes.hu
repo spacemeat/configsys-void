@@ -1,25 +1,34 @@
 {
-    // Make Void Linux a first-class OS. It inherits the `linux` baseline and declares xbps as
-    // its native package manager. This one block is enough that EVERY existing repo component
-    // routed `via: native` (btop, ripgrep, firefox, ...) now installs on Void through the
-    // xbps driver — no per-component work.
+    // Make Void Linux a first-class OS. xbps is its native package manager, and Void ships in TWO
+    // flavors that differ only by C library — a clean demo that libc is an axis ORTHOGONAL to the
+    // distro/package-manager:
+    //   void       — glibc (hangs off `glibc_linux`, so it PROVIDES `glibc`): AppImages and glibc
+    //                tarballs (neovim, julia, deno, ...) install normally.
+    //   void_musl  — musl (hangs off bare `linux`, like Alpine): those same glibc-only bindings
+    //                `requires: glibc` and cleanly DECLINE — no per-component work; same xbps
+    //                driver, same component-names, just a different binary-compat surface.
+    // Both report ID=void, so void_musl is told apart by the musl loader's presence (detect:
+    // marker) — the data-driven mechanism, no code. (x86_64 loader path; configsys targets x86_64.)
     os: {
-        void: { using: linux  native: xbps }
+        void:      { using: glibc_linux  native: xbps }
+        void_musl: { using: linux        native: xbps
+                     detect: { id: void  marker: /lib/ld-musl-x86_64.so.1 } }
     }
 
-    // Void-specific components, installed with the xbps driver this plugin ships. Each is
-    // guarded `when: "void"` so the binding exists ONLY where xbps does — a component is
-    // never offered on an OS whose driver isn't loaded. `via: xbps` is the direct form (use
-    // it for packages unique to this distro); repo components can keep using `via: native`.
+    // Void-specific components, installed with the xbps driver this plugin ships. Guarded to both
+    // Void flavors (they're siblings — different libc parents — so `void` alone wouldn't match
+    // void_musl). `via: xbps` is the direct form (packages unique to this distro); repo components
+    // keep using `via: native`, which resolves to xbps on both flavors.
     components: {
-        xtools: { install: [ { via: xbps  when: "void" } ] }        // Void's packaging helper scripts
+        xtools: { install: [ { via: xbps  when: "void or void_musl" } ] }   // Void's packaging helper scripts
     }
 
     // Per-driver package-name patches for CORE components whose xbps name differs from the
     // generic default — supplied WITHOUT redefining the component (that's what `component-names`
-    // is for). Verified against ghcr.io/void-linux/void-glibc by test/run-name-sweep.sh; the
-    // sweep is what keeps this honest as Void's repos roll. `{}` = Void has no xbps package for
-    // the component, so it's simply not offered here (nmap: only masscan is packaged).
+    // is for). xbps names are libc-agnostic, so this one map covers BOTH flavors; verified against
+    // void-glibc AND void-musl by test/run-name-sweep.sh, which keeps it honest as Void's repos
+    // roll. `{}` = Void has no xbps package for the component, so it's simply not offered here
+    // (nmap: only masscan is packaged).
     component-names: {
         xbps: {
             docker-engine: docker          // "Docker container runtime" (default was docker.io)
