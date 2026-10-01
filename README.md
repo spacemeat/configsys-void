@@ -1,5 +1,12 @@
 # configsys-void — Void Linux support for configsys
 
+> **Void is now in configsys core** (the `void` / `void_musl` OS blocks, the `xbps` driver, and Void
+> package names for the whole catalog), and core is authoritative. You don't need this plugin to run
+> Void. It stays as the **worked example of an OS plugin**, kept in step with core:
+> `test/test_parity.py` checks that it never contradicts core and that its driver behaves identically.
+> If you do load it, its `xbps` driver **shadows** core's built-in one (`configsys check` and
+> `configsys plugin list` report that). Drop it from your config if you only want Void support.
+
 A complete, working [configsys](https://github.com/spacemeat/configsys) **code plugin** that
 makes **Void Linux** a first-class OS in *both* its libc flavors — `void` (glibc) and `void_musl`
 (musl): an `xbps` driver, verified package names for the components whose Void name differs, and a
@@ -32,11 +39,12 @@ It's three files — the shape of every code plugin:
   no root; mutations run under sudo. Void is rolling but has a native package hold, so this
   driver implements a real `lock`/`unlock` via `xbps-pkgdb -m hold`.
 - **Correct Void package names.** Most repo components already resolve to the right xbps name
-  (Void is close to the generic default). The ~10 that differ are patched in `component-names:`
-  — `docker`, `R`, `openjdk21`, `fish-shell`, `apache-maven`, `openbsd-netcat`, `python3-pipx`,
-  `fuse`, `wireshark` (for tshark) — a per-driver name map that corrects existing core components
-  *without* redefining them. `nmap` (not packaged for Void — only `masscan`) is dropped there,
-  so it's simply not offered rather than failing at install.
+  (Void is close to the generic default). A representative set that differs is patched in
+  `component-names:` — `docker`, `R`, `openjdk21`, `fish-shell`, `apache-maven`, `openbsd-netcat`,
+  `python3-pipx`, `fuse`, `wireshark` (for tshark) — a per-driver name map that corrects existing
+  core components *without* redefining them. `rocm-hip` (Void doesn't package ROCm) is dropped with
+  `{}`, so it's simply not offered rather than failing at install. (Core carries the complete set as
+  `xbps:` entries in each binding's `name:` map, plus Void-only bindings a name map can't express.)
 - **The trust gate.** Because `plugin.hu` has a `code:` key, the plugin runs with your
   privileges during installs — so it stays inert until you approve its exact contents.
 
@@ -76,6 +84,17 @@ helpers you may call (`resolve_version`, `download_url`, `scoped_dir`, `sudo`, `
 documented on the `Driver` base class (`configsys/driver.py`) and versioned by
 `configsys.plugins.ABI_VERSION`.
 
+## Testing — parity with core
+
+`test/test_parity.py` loads core from `$CONFIGSYS_REPO` (default `../configsys`) and checks four
+things: the OS blocks equal core's; every `component-names:` entry agrees with core's resolution on
+both flavors; this driver issues the same commands and parses the same answers as core's
+`configsys/drivers/xbps.py`; and loading the plugin over core changes no resolution at all.
+
+```console
+$ ../configsys/.venv/bin/python -m pytest test/
+```
+
 ## Testing — the name sweep
 
 `test/run-name-sweep.sh` resolves the whole component catalog with this plugin loaded and checks
@@ -85,9 +104,9 @@ Void renames or drops a package, the sweep turns red and points at the exact com
 
 ```console
 $ CONFIGSYS_REPO=../configsys test/run-name-sweep.sh
->> void (xbps): 88 packages in ghcr.io/void-linux/void-glibc:latest
+>> void (xbps): 397 packages in ghcr.io/void-linux/void-glibc:latest
 name sweep: OK — void native names all exist.
->> void_musl (xbps): 88 packages in ghcr.io/void-linux/void-musl:latest
+>> void_musl (xbps): 398 packages in ghcr.io/void-linux/void-musl:latest
 name sweep: OK — void_musl native names all exist.
 ```
 
@@ -95,7 +114,7 @@ xbps package names are libc-agnostic, so one `component-names` map covers both f
 confirms it against each. (The glibc/musl difference is the *binary-compat* surface, handled by the
 `glibc` capability, not the package names.)
 
-- `test/void-repo-setup.sh` — syncs the xbps repo index in the container before the check.
+- `test/void-repo-setup.sh` — syncs the xbps repo index (plus the nonfree repo) in the container before the check.
 - `test/run-name-sweep.sh` — invokes the plugin-OS mode of configsys's `tools/namesweep.py`, once
   per flavor.
 - `test/namesweep-allowlist.hu` — the GPU/accelerator SDKs (CUDA/ROCm/oneAPI) that live in vendor

@@ -28,7 +28,11 @@
     // is for). xbps names are libc-agnostic, so this one map covers BOTH flavors; verified against
     // void-glibc AND void-musl by test/run-name-sweep.sh, which keeps it honest as Void's repos
     // roll. `{}` = Void has no xbps package for the component, so it's simply not offered here
-    // (nmap: only masscan is packaged).
+    // (rocm-hip: Void doesn't package AMD's ROCm).
+    //
+    // Void is now ALSO in configsys core, which carries these same facts as `xbps:` entries in each
+    // binding's `name:` map (plus Void-only bindings this map can't express); core is authoritative.
+    // test/test_parity.py checks that nothing here contradicts it.
     component-names: {
         xbps: {
             docker-engine: docker          // "Docker container runtime" (default was docker.io)
@@ -40,7 +44,7 @@
             pipx:          python3-pipx
             r:             R                // capital R
             tshark:        wireshark        // tshark ships inside the wireshark package
-            nmap:          {}               // absent on Void (only masscan) -> not offered
+            rocm-hip:      {}               // no ROCm on Void -> not offered
         }
     }
 }
