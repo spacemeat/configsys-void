@@ -103,7 +103,7 @@ def _unit(name='curl', **fields):
 
 SCENARIOS = {
     'unbatched reads': lambda d: (d.get_version(_unit()), d.get_latest(_unit()), d.is_locked(_unit())),
-    'batched reads': lambda d: (setattr(d, '_batch', d.batch_index([_unit()])),
+    'batched reads': lambda d: (setattr(d, 'batch', d.batch_index([_unit()])),
                                 d.get_version(_unit()), d.get_latest(_unit()), d.get_latest(_unit('0ad')),
                                 d.is_locked(_unit()), d.is_locked(_unit('acl')))[1:],
     'indexes': lambda d: (d.installed_index(), d.explicit_keys(), d.held_keys(), d.upgradable_index()),
