@@ -75,7 +75,9 @@ class Xbps(Driver):
     def _probe_name(rc):
         pkgs = rc.fields.get('packages')
         first = (pkgs[0] if isinstance(pkgs, list) and pkgs else pkgs) if pkgs else None
-        return rc.fields.get('installed-name') or (str(first) if first else rc.name)
+        # Driver.installed_name: the frozen helper (configsys F3) — the field may be a driver-keyed
+        # map (`installed-name: { apt: cargo }`), which reading it by hand crashed on
+        return Driver.installed_name(rc, 'xbps') or (str(first) if first else rc.name)
 
     def index_key(self, rc):
         return self._probe_name(rc)
